@@ -7,15 +7,28 @@ import os
 
 from huggingface_hub import InferenceClient
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from typing import Optional, List
 from pydantic import BaseModel, Field
+import dotenv
 
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
+#from tests import text, dummy_feat_impact
 
 hf_token = os.environ.get("HF_TOKEN")
+
+text = "APEX NATIONAL BANK Consumer Credit Underwriting & Personal Financial ProfileApplicant ProfileFieldDetailAge / Gender22 / FemaleEducation LevelMaster’s DegreeHousing StatusRentEmployment Experience0 Years (Recent Graduate / Entry-Level)Annual Gross Income$71,948.00Credit & Risk AssessmentFieldDetailUnderwriter AssessmentCredit Score561Subprime / FairCredit History Length3.0 YearsLimited / Thin FilePrior Loan DefaultsNone on filePositiveLoan Application DetailsFieldDetailRequested Amount$35,000.00Loan Purpose / IntentPersonalOffered / Stated Interest Rate16.02% APRLoan-to-Income Ratio48.65% (0.49)Underwriting Summary & Risk IndicatorsHigh Loan-to-Income Exposure: The requested loan of $35,000 represents nearly 49% of the applicant’s total annual gross income for an unsecured personal loan.Credit Score vs. Education Paradox: While the applicant holds an advanced degree and strong starting income ($71,948.00), a credit score of 561 combined with a 3-year credit history indicates elevated credit risk or high existing credit utilization.Recommendation: Requires manual underwriter review, proof of employment/stipend, or a qualified co-signer prior to loan disbursement due to subprime credit tier and high exposure ratio."
+
+dummy_feat_impact = """ Predicted probability of loan approval: 73.2%
+Top contributing factors:
+- credit_score = 710: increased approval likelihood (impact score: +0.421)
+- debt_to_income = 0.45: decreased approval likelihood (impact score: -0.187)
+- income = 52000: increased approval likelihood (impact score: +0.093)
+- employment_years = 2: decreased approval likelihood (impact score: -0.061)
+- loan_amount = 25000: decreased approval likelihood (impact score: -0.034) """
 
 
 class GenderEnum(str, Enum):
@@ -189,7 +202,66 @@ Return only the fields defined above. Do not add commentary or extra keys."""
 
   return result
 
-text = "APEX NATIONAL BANK Consumer Credit Underwriting & Personal Financial ProfileApplicant ProfileFieldDetailAge / Gender22 / FemaleEducation LevelMaster’s DegreeHousing StatusRentEmployment Experience0 Years (Recent Graduate / Entry-Level)Annual Gross Income$71,948.00Credit & Risk AssessmentFieldDetailUnderwriter AssessmentCredit Score561Subprime / FairCredit History Length3.0 YearsLimited / Thin FilePrior Loan DefaultsNone on filePositiveLoan Application DetailsFieldDetailRequested Amount$35,000.00Loan Purpose / IntentPersonalOffered / Stated Interest Rate16.02% APRLoan-to-Income Ratio48.65% (0.49)Underwriting Summary & Risk IndicatorsHigh Loan-to-Income Exposure: The requested loan of $35,000 represents nearly 49% of the applicant’s total annual gross income for an unsecured personal loan.Credit Score vs. Education Paradox: While the applicant holds an advanced degree and strong starting income ($71,948.00), a credit score of 561 combined with a 3-year credit history indicates elevated credit risk or high existing credit utilization.Recommendation: Requires manual underwriter review, proof of employment/stipend, or a qualified co-signer prior to loan disbursement due to subprime credit tier and high exposure ratio."
-
 result = instruct_and_extract_schema(text_from_function=text)
-print(result)
+#print(result)
+
+def format_for_llm(feature_impacts):
+
+    lines = [f"Predicted probability of loan approval {0.556:.1%}"]
+
+    for feat, impact, val in feature_impacts:
+        direction = "increased" if impact > 0 else "decreased"
+        lines.append[f"{feat}={val} : {direction} approval likelihood with impact score of {impact}"]
+
+    return '\n'.join(lines)
+
+#text_lines = format_for_llm(feature_impacts=dummy_feat_impact)
+
+
+def instruct_and_interpret_report(form_lines):
+
+    system_prompt = """You are a credit underwriting assistant. You will be given a model's predicted 
+probability of loan approval along with the top factors (SHAP values) that 
+influenced that prediction, in order of importance.
+
+Your job is to write a short, clear explanation of the decision for a loan 
+officer or borrower-facing summary. Follow these rules:
+
+1. State the overall recommendation first (e.g. "This application is likely 
+   to be approved" / "flagged for review" / "likely to be denied") based on 
+   the probability. Use your judgment on thresholds unless a specific policy 
+   threshold is given to you.
+2. Explain the 2-3 most influential factors in plain language, without 
+   mentioning "SHAP," "impact scores," or any ML jargon. Translate impact 
+   direction into borrower-relevant language (e.g. "a strong credit score 
+   supported approval" rather than "credit_score had impact +0.421").
+3. Do not invent numbers, factors, or values that were not provided to you.
+4. Keep the explanation to 3-5 sentences.
+5. Do not state or imply this is a final decision — frame it as a model-based 
+   recommendation subject to human review.
+6. If any factor might reflect a protected characteristic (e.g. age, zip code 
+   as a proxy for race) rather than a legitimate credit factor, note that this 
+   feature should be reviewed for fair lending compliance rather than stated 
+   as a plain justification."""
+
+    human_prompt = """You have this formatted output extract the details and explain :""" + form_lines
+
+    hg_llm = HuggingFaceEndpoint(
+        repo_id = "meta-llama/Llama-3.1-8B-Instruct",
+        task = "text-generation",
+        max_new_tokens= 512,
+        temperature = 0.3
+      )
+    
+    chat_model = ChatHuggingFace(llm=hg_llm)
+    
+    response = chat_model.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=human_prompt)
+
+    ])
+    
+    return response.content
+
+llm_output = instruct_and_interpret_report(form_lines = dummy_feat_impact)
+print(llm_output)
