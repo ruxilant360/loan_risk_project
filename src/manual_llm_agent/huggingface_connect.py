@@ -3,6 +3,7 @@ import numpy as np
 import langchain
 import pandas as pd
 import os
+from pathlib import Path
 
 
 from huggingface_hub import InferenceClient
@@ -18,6 +19,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 #from tests import text, dummy_feat_impact
 
+dotenv.load_dotenv(Path(__file__).parent / "HF_TOKEN.env")
 hf_token = os.environ.get("HF_TOKEN")
 
 text = "APEX NATIONAL BANK Consumer Credit Underwriting & Personal Financial ProfileApplicant ProfileFieldDetailAge / Gender22 / FemaleEducation LevelMaster’s DegreeHousing StatusRentEmployment Experience0 Years (Recent Graduate / Entry-Level)Annual Gross Income$71,948.00Credit & Risk AssessmentFieldDetailUnderwriter AssessmentCredit Score561Subprime / FairCredit History Length3.0 YearsLimited / Thin FilePrior Loan DefaultsNone on filePositiveLoan Application DetailsFieldDetailRequested Amount$35,000.00Loan Purpose / IntentPersonalOffered / Stated Interest Rate16.02% APRLoan-to-Income Ratio48.65% (0.49)Underwriting Summary & Risk IndicatorsHigh Loan-to-Income Exposure: The requested loan of $35,000 represents nearly 49% of the applicant’s total annual gross income for an unsecured personal loan.Credit Score vs. Education Paradox: While the applicant holds an advanced degree and strong starting income ($71,948.00), a credit score of 561 combined with a 3-year credit history indicates elevated credit risk or high existing credit utilization.Recommendation: Requires manual underwriter review, proof of employment/stipend, or a qualified co-signer prior to loan disbursement due to subprime credit tier and high exposure ratio."
@@ -62,8 +64,8 @@ class LoanIntentEnum(str, Enum):
 
 
 class LoanDefaultsEnum(str, Enum):
-    Y = "Y"
-    N = "N"
+    YES = "Yes"
+    NO = "No"
 
 
 class CreditRiskApplicant(BaseModel):
@@ -141,7 +143,7 @@ class CreditRiskApplicant(BaseModel):
     
     previous_loan_defaults_on_file: LoanDefaultsEnum = Field(
         ...,
-        description="Indicator of whether the applicant has any recorded historical loan defaults on file. 'Y' for Yes, 'N' for No."
+        description="Indicator of whether the applicant has any recorded historical loan defaults on file. 'Yes' or 'No'."
     )
     
     loan_status: Optional[int] = Field(
@@ -174,7 +176,7 @@ Fields:
 - loan_percent_income (float or null, 0.0–1.0): loan_amnt / person_income as a decimal ratio. Compute it yourself only if both values are present in the text; otherwise null.
 - cb_person_cred_hist_length (float, >= 0.0): Length of credit history on file, in years.
 - credit_score (int, 300–850): Standard FICO/VantageScore-style credit score.
-- previous_loan_defaults_on_file (enum: "Y" | "N"): Whether the applicant has a recorded prior default.
+- previous_loan_defaults_on_file (enum: "Yes" | "No"): Whether the applicant has a recorded prior default.
 - loan_status (int or null): Historical/target status — 0 for non-default/approved, 1 for default/rejected. Null during inference-only extraction (no ground truth in the text).
 
 Return only the fields defined above. Do not add commentary or extra keys."""
@@ -183,7 +185,8 @@ Return only the fields defined above. Do not add commentary or extra keys."""
     repo_id = "meta-llama/Llama-3.1-8B-Instruct",
     task = "text-generation",
     max_new_tokens= 512,
-    temperature = 0.1
+    temperature = 0.1,
+    huggingfacehub_api_token = hf_token
   )
 
   chat_model = ChatHuggingFace(llm=hg_llm)
@@ -202,20 +205,16 @@ Return only the fields defined above. Do not add commentary or extra keys."""
 
   return result
 
-result = instruct_and_extract_schema(text_from_function=text)
-#print(result)
 
-def format_for_llm(feature_impacts):
+def format_for_llm(probability, feature_impacts):
 
-    lines = [f"Predicted probability of loan approval {0.556:.1%}"]
+    lines = [f"Predicted probability of loan approval: {probability:.1%}"]
 
     for feat, impact, val in feature_impacts:
         direction = "increased" if impact > 0 else "decreased"
-        lines.append[f"{feat}={val} : {direction} approval likelihood with impact score of {impact}"]
+        lines.append(f"{feat}={val}: {direction} approval likelihood with impact score of {impact:.4f}")
 
     return '\n'.join(lines)
-
-#text_lines = format_for_llm(feature_impacts=dummy_feat_impact)
 
 
 def instruct_and_interpret_report(form_lines):
@@ -250,9 +249,10 @@ officer or borrower-facing summary. Follow these rules:
         repo_id = "meta-llama/Llama-3.1-8B-Instruct",
         task = "text-generation",
         max_new_tokens= 512,
-        temperature = 0.3
+        temperature = 0.3,
+        huggingfacehub_api_token = hf_token
       )
-    
+
     chat_model = ChatHuggingFace(llm=hg_llm)
     
     response = chat_model.invoke([
@@ -263,5 +263,10 @@ officer or borrower-facing summary. Follow these rules:
     
     return response.content
 
-llm_output = instruct_and_interpret_report(form_lines = dummy_feat_impact)
-print(llm_output)
+
+if __name__ == "__main__":
+    result = instruct_and_extract_schema(text_from_function=text)
+    print(result)
+
+    llm_output = instruct_and_interpret_report(form_lines=dummy_feat_impact)
+    print(llm_output)

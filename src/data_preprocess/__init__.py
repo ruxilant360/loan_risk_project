@@ -1,1 +1,1 @@
-from .process_text import open_and_read_text,  dict_to_rows
+from .process_text import open_and_read_text, extract_json, dict_to_rows
