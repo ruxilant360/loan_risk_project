@@ -1,4 +1,4 @@
-# Loan Risk Project
+# Agentic Loan Risk Triage System 
 
 An end-to-end loan-risk assessment pipeline that turns a **free-text loan application / underwriting note** into a **model-backed risk explanation in plain English**.
 
