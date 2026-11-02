@@ -303,15 +303,6 @@ What this shows:
 
 Input: the APEX National Bank underwriting note in `tests/extracted_text.txt`. The applicant is 22, female, has a Master's degree, rents, has 0 years of employment, earns $71,948, is requesting $35,000 for a personal loan at 16.02%, has a credit score of 561 and 3 years of credit history, and has no prior defaults.
 
-| stage | status | time |
-|---|---|---|
-| 1. LLM extraction (`instruct_and_extract_schema`) | **failed**: Hugging Face `402 Payment Required` (no remaining Inference Provider credits) | — |
-| 2. Preprocess (`extract_json` + `dict_to_rows`) | ok | ~10 ms |
-| 3. XGBoost + SHAP (`predict_with_shap`) | ok | ~215 ms first call, ~235 ms afterwards (median of 5) |
-| 4. LLM interpretation (`instruct_and_interpret_report`) | **not run**: same 402 error | — |
-
-Stages 2–3 were run on a `CreditRiskApplicant` filled in by hand from the note, standing in for the extraction output. Model output (`xgboost_trained.json`):
-
 ```
 Predicted probability (class 1): 99.9%
 loan_percent_income=0.49           impact +3.281
