@@ -1,0 +1,30 @@
+===== TRAIN =====
+              precision    recall  f1-score   support
+
+           0     0.9953    0.9505    0.9724     23800
+           1     0.8505    0.9844    0.9125      6800
+
+    accuracy                         0.9581     30600
+   macro avg     0.9229    0.9675    0.9425     30600
+weighted avg     0.9631    0.9581    0.9591     30600
+
+===== VALIDATION =====
+              precision    recall  f1-score   support
+
+           0     0.9639    0.9276    0.9454      4200
+           1     0.7761    0.8783    0.8241      1200
+
+    accuracy                         0.9167      5400
+   macro avg     0.8700    0.9030    0.8847      5400
+weighted avg     0.9222    0.9167    0.9184      5400
+
+===== TEST =====
+              precision    recall  f1-score   support
+
+           0     0.9690    0.9283    0.9482      7000
+           1     0.7812    0.8960    0.8347      2000
+
+    accuracy                         0.9211      9000
+   macro avg     0.8751    0.9121    0.8914      9000
+weighted avg     0.9272    0.9211    0.9230      9000
+

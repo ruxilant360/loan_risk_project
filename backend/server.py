@@ -16,8 +16,6 @@ from src.manual_llm_agent.huggingface_connect import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("model-api")
 
-# TODO: point this at your trained XGBoost model artifact (e.g. "models/xgb_model.json"),
-# or set the MODEL_PATH environment variable instead of editing this file.
 MODEL_PATH = os.environ.get("MODEL_PATH", "PATH/TO/YOUR/XGBOOST/MODEL.json")
 TOP_FEATURES = 5
 
